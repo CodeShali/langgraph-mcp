@@ -1,211 +1,189 @@
-# LangGraph Cloud MCP Integration
+# LangGraph MCP Local Deployment
 
 ## Overview
 
-This project demonstrates using **LangGraph Cloud Platform APIs** to create an AI assistant that calls your custom **MCP (Model Context Protocol) server**. 
+A **local AI agent deployment** with **cloud accessibility** that integrates custom MCP (Model Context Protocol) tools. This provides LangGraph Cloud-compatible APIs without cloud billing.
 
-**Key Points:**
-- ✅ Uses LangGraph Cloud's **hosted infrastructure** (no code deployment)
-- ✅ Your MCP server provides custom tools
-- ✅ LangGraph Cloud hosts the LLM and agent runtime
-- ✅ Communication via **REST APIs only** (no SDKs)
+**Key Features:**
+- 🏠 **Local deployment** - runs on your machine
+- 🌐 **Cloud accessible** - public HTTPS endpoint via Cloudflare Tunnel
+- 🔧 **Custom MCP tools** - math operations (add, subtract, multiply)
+- 🚀 **LangGraph-compatible API** - same endpoints as LangGraph Cloud
+- 💰 **Cost-effective** - only OpenAI API usage, no cloud hosting fees
+
+## Quick Start
+
+### 1. Setup
+
+```bash
+git clone https://github.com/CodeShali/langgraph-mcp.git
+cd langgraph-mcp
+./scripts/setup.sh
+```
+
+### 2. Configure
+
+Edit `.env` file:
+```bash
+OPENAI_API_KEY=sk-proj-your-openai-key-here
+```
+
+### 3. Start
+
+```bash
+./scripts/start.sh
+```
+
+### 4. Test
+
+```bash
+python3 scripts/test.py
+```
 
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                    Your Application                         │
-│                                                             │
-│  langraph_cloud_client.py                                   │
-│  (Makes HTTP calls to LangGraph Cloud API)                  │
-└────────────────┬────────────────────────────────────────────┘
-                 │ HTTPS
-                 │ (REST API calls)
-                 ▼
-┌─────────────────────────────────────────────────────────────┐
-│              LangGraph Cloud Platform                       │
-│              (Hosted by LangChain)                          │
-│                                                             │
-│  ┌─────────────────────────────────────────────────────┐   │
-│  │  Your Assistant (hosted)                            │   │
-│  │  - GPT-4o-mini LLM                                  │   │
-│  │  - Agent orchestration                              │   │
-│  │  - Tool calling logic                               │   │
-│  └──────────────────┬──────────────────────────────────┘   │
-└─────────────────────┼──────────────────────────────────────┘
-                      │ HTTPS
-                      │ (Calls your MCP tools)
-                      ▼
-┌─────────────────────────────────────────────────────────────┐
-│              Your MCP Server                                │
-│              (Running locally or deployed)                  │
-│                                                             │
-│  mcp_server.py (Flask)                                      │
-│  - http://your-ngrok-url or https://your-server.com         │
-│                                                             │
-│  Tools:                                                     │
-│  - POST /tools/add                                          │
-│  - POST /tools/subtract                                     │
-│  - POST /tools/multiply                                     │
-└─────────────────────────────────────────────────────────────┘
+Internet → Cloudflare Tunnel → API Server → Query Agent → MCP Server → Math Tools
 ```
 
-## How It Works
-
-1. **You create an assistant** via LangGraph Cloud API
-   - Define which tools it can use (your MCP tools)
-   - LangGraph Cloud hosts the assistant
-
-2. **User sends a message** via your client
-   - Client calls LangGraph Cloud API
-   - Creates a "run" in a "thread"
-
-3. **LangGraph Cloud executes**
-   - LLM analyzes the message
-   - Decides to call your MCP tools
-   - Makes HTTP calls to your MCP server
-   - Gets results and formulates response
-
-4. **You get the response** via API
-   - Poll for run completion
-   - Retrieve assistant's response
+**Components:**
+- **MCP Server** (`mcp_server.py`): Provides math tools via HTTP
+- **API Server** (`simple_web_api.py`): LangGraph-compatible REST API
+- **Query Agent** (`query_agent.py`): Processes queries and calls tools
+- **Cloudflare Tunnel**: Exposes local API publicly
 
 ## Project Structure
 
 ```
-langraph/
-├── mcp_server.py                 # Your MCP server (Flask)
-├── langraph_cloud_client.py      # Client for LangGraph Cloud API
-├── test_mcp_server.py            # Test your MCP server
-├── requirements.txt              # Python dependencies
-├── .env                          # Environment variables
-├── env.example                   # Example env file
-└── README.md                     # This file
+langgraph-mcp/
+├── mcp_server.py           # MCP server with math tools
+├── simple_web_api.py       # Main API server
+├── query_agent.py          # Query processing logic
+├── test_mcp_server.py      # MCP server tests
+├── requirements.txt        # Python dependencies
+├── .env                    # Environment variables
+├── env.example             # Environment template
+├── scripts/
+│   ├── setup.sh           # Setup script
+│   ├── start.sh           # Start all services
+│   └── test.py            # Test deployment
+└── docs/
+    ├── SETUP.md           # Detailed setup guide
+    └── API.md             # API documentation
 ```
 
-## Setup
+## API Endpoints
 
-### 1. Install Dependencies
+### Core Endpoints
+- `GET /health` - Server health check
+- `POST /assistants` - Create assistant
+- `POST /threads` - Create conversation thread
+- `POST /threads/{id}/runs` - Execute agent
+- `GET /threads/{id}/state` - Get conversation state
 
+### Example Usage
+
+```python
+import requests
+
+base_url = "http://localhost:8000"  # or your public URL
+
+# Create assistant
+assistant = requests.post(f"{base_url}/assistants", 
+                         json={"name": "Math Helper"}).json()
+
+# Create thread
+thread = requests.post(f"{base_url}/threads").json()
+
+# Send query
+run = requests.post(f"{base_url}/threads/{thread['thread_id']}/runs",
+                   json={
+                       "assistant_id": assistant["assistant_id"],
+                       "input": {
+                           "messages": [{"role": "user", "content": "What is 15 + 27?"}]
+                       }
+                   })
+
+# Get response
+state = requests.get(f"{base_url}/threads/{thread['thread_id']}/state").json()
+print(state["values"]["messages"][-1]["content"])
+```
+
+## MCP Tools
+
+The agent can use these math tools:
+
+- **add_numbers(a, b)** - Add two numbers
+- **subtract_numbers(a, b)** - Subtract b from a
+- **multiply_numbers(a, b)** - Multiply two numbers
+
+## Deployment Options
+
+### Local Development
 ```bash
-pip install -r requirements.txt
+./scripts/start.sh
 ```
+Access at: `http://localhost:8000`
 
-### 2. Get API Keys
+### Public Access
+The start script automatically exposes your API via Cloudflare Tunnel.
+You'll get a public URL like: `https://xxx-xxx-xxx.trycloudflare.com`
 
-**LangSmith API Key:**
-- Go to https://smith.langchain.com
-- Sign up/login
-- Settings → API Keys → Create new key
+### Production Deployment
+For production, deploy the MCP server to a cloud service and update the `MCP_SERVER_URL` in your environment.
 
-**OpenAI API Key:**
-- Already in your `.env` file
+## Requirements
 
-### 3. Configure Environment
+- **Python 3.9+** (Python 3.11+ recommended)
+- **OpenAI API Key** (required)
+- **Internet connection** (for public access)
+- **macOS/Linux** (Windows with WSL)
 
-Edit `.env`:
-```bash
-# Your OpenAI key (already set)
-OPENAI_API_KEY=sk-proj-...
+## Documentation
 
-# Add your LangSmith key
-LANGSMITH_API_KEY=lsv2_pt_your-key-here
-
-# MCP Server URL (must be publicly accessible)
-MCP_SERVER_URL=https://your-ngrok-url
-```
-
-### 4. Make MCP Server Public
-
-**Option A: Use Cloudflare Tunnel (recommended - free, no signup)**
-```bash
-# Terminal 1: Start MCP server
-python3 mcp_server.py
-
-# Terminal 2: Expose it
-brew install cloudflared
-cloudflared tunnel --url http://localhost:5000
-# Copy the URL to .env as MCP_SERVER_URL
-```
-
-**Option B: Use ngrok**
-```bash
-# Sign up at https://dashboard.ngrok.com/signup
-# Get authtoken and configure it
-ngrok config add-authtoken YOUR_TOKEN
-
-# Terminal 1: Start MCP server
-python3 mcp_server.py
-
-# Terminal 2: Expose it
-ngrok http 5000
-# Copy the https URL to .env as MCP_SERVER_URL
-```
-
-**Option C: Deploy MCP server to cloud**
-- Railway.app, Render.com, Fly.io, etc.
-
-### 5. Run the Client
-
-```bash
-# Run example
-python3 langraph_cloud_client.py
-
-# Or interactive mode
-python3 langraph_cloud_client.py interactive
-```
-
-## Usage Example
-
-```
-======================================================================
-LangGraph Cloud API Client - MCP Integration
-======================================================================
-MCP Server: https://abc123.ngrok.io
-======================================================================
-
-1. Fetching tools from MCP server...
-   Found 3 tools:
-   - add: Add two numbers
-   - subtract: Subtract two numbers
-   - multiply: Multiply two numbers
-
-2. Creating assistant with MCP tools...
-   Created assistant: asst_abc123
-
-3. Creating conversation thread...
-   Thread ID: thread_xyz789
-
-4. Running conversation...
-
-   USER: What is 15 plus 27?
-   ASSISTANT: The sum of 15 and 27 is 42.
-
-   USER: Now multiply that result by 2
-   ASSISTANT: The result is 84.
-
-======================================================================
-Demo Complete!
-======================================================================
-```
+- **[Setup Guide](docs/SETUP.md)** - Detailed setup instructions
+- **[API Documentation](docs/API.md)** - Complete API reference
 
 ## Troubleshooting
 
-### "Could not fetch tools from MCP server"
-- Make sure MCP server is running: `python3 mcp_server.py`
-- Check `MCP_SERVER_URL` is correct and publicly accessible
-- Test: `curl https://your-url/tools`
+### Common Issues
 
-### "Authentication failed"
-- Check `LANGSMITH_API_KEY` is correct
-- Get new key from https://smith.langchain.com
+**"Module not found" errors:**
+```bash
+pip3 install -r requirements.txt
+```
 
-### "Connection refused"
-- MCP server must be publicly accessible
-- Use Cloudflare Tunnel, ngrok, or deploy to cloud
-- Cannot use `localhost` for cloud deployments
+**"Connection refused" errors:**
+- Ensure MCP server is running: `python3 mcp_server.py`
+- Check ports 5000 and 8000 are available
 
-## Resources
+**"OpenAI API key" errors:**
+- Verify your API key in `.env` file
+- Test: `curl -H "Authorization: Bearer YOUR_KEY" https://api.openai.com/v1/models`
 
-- **LangSmith**: https://smith.langchain.com
-- **LangGraph Cloud API**: https://langchain-ai.github.io/langgraph/cloud/reference/api/
+### Getting Help
+
+1. Check the [Setup Guide](docs/SETUP.md)
+2. Run the test script: `python3 scripts/test.py`
+3. Check server logs in the terminal
+
+## Benefits
+
+✅ **No cloud billing** - runs locally  
+✅ **Cloud accessibility** - public HTTPS endpoint  
+✅ **LangGraph compatibility** - same API as LangGraph Cloud  
+✅ **Custom tools** - your own MCP server  
+✅ **Easy deployment** - one command setup  
+✅ **Cost control** - only OpenAI API usage  
+
+## License
+
+MIT License - see LICENSE file for details.
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests
+5. Submit a pull request

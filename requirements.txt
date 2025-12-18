@@ -1,14 +1,11 @@
-# Web server for MCP
+# Core dependencies for MCP server and API
 flask==3.0.0
-
-# LangGraph and LangChain dependencies
-langgraph==0.2.45
-langchain==0.3.7
-langchain-core==0.3.15
-langchain-openai==0.2.0
-
-# HTTP requests
 requests==2.31.0
-
-# Logging and utilities
 python-dotenv==1.0.0
+
+# Optional: For full LangGraph agent (requires Python 3.11+)
+# Uncomment these if you want to use the full agent instead of simple responses
+# langgraph==0.2.45
+# langchain==0.3.7
+# langchain-core==0.3.15
+# langchain-openai==0.2.0
