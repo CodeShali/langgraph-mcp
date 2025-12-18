@@ -1,0 +1,14 @@
+# Web server for MCP
+flask==3.0.0
+
+# LangGraph and LangChain dependencies
+langgraph==0.2.45
+langchain==0.3.7
+langchain-core==0.3.15
+langchain-openai==0.2.0
+
+# HTTP requests
+requests==2.31.0
+
+# Logging and utilities
+python-dotenv==1.0.0
